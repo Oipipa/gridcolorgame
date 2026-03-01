@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  const leaderboard = getLeaderboard(limit);
+  const leaderboard = await getLeaderboard(limit);
 
   return NextResponse.json({ leaderboard });
 }
@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
   }
 
   const score = normalizeScore(payload.score);
-  transferAndUpsertHighScore(username, score, previousUsername);
+  await transferAndUpsertHighScore(username, score, previousUsername);
 
   return NextResponse.json({ ok: true });
 }

@@ -4,8 +4,8 @@ import styles from "@/app/leaderboard/leaderboard.module.css";
 
 export const dynamic = "force-dynamic";
 
-export default function LeaderboardPage() {
-  const leaderboard = getLeaderboard();
+export default async function LeaderboardPage() {
+  const leaderboard = await getLeaderboard();
 
   return (
     <main className={styles.page}>
