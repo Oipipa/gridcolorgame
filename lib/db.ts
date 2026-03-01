@@ -6,6 +6,7 @@ import { LeaderboardEntry } from "@/lib/types";
 const MONGODB_URI = process.env.MONGODB_URI;
 const MONGODB_DB_NAME = process.env.MONGODB_DB_NAME ?? "gridcolorgame";
 const SCORES_COLLECTION = "scores";
+export const USERNAME_TAKEN_ERROR_CODE = "USERNAME_TAKEN";
 
 if (!MONGODB_URI) {
   throw new Error("MONGODB_URI is required.");
@@ -33,6 +34,10 @@ const mapRowsToLeaderboard = (rows: ScoreDocument[]): LeaderboardEntry[] => {
 
 const toUsernameKey = (username: string): string => {
   return username.replace(/[A-Z]/g, (char) => char.toLowerCase());
+};
+
+const throwUsernameTaken = (): never => {
+  throw new Error(USERNAME_TAKEN_ERROR_CODE);
 };
 
 declare global {
@@ -101,6 +106,19 @@ export const getLeaderboard = async (limit?: number): Promise<LeaderboardEntry[]
   return mapRowsToLeaderboard(rows);
 };
 
+export const hasUsername = async (username: string): Promise<boolean> => {
+  const scores = await getScoresCollection();
+  const usernameKey = toUsernameKey(username);
+  const existing = await scores.findOne(
+    { usernameKey },
+    {
+      projection: { _id: 0, usernameKey: 1 },
+    },
+  );
+
+  return Boolean(existing);
+};
+
 const conditionalUpsert = async (
   scores: Collection<ScoreDocument>,
   username: string,
@@ -147,18 +165,58 @@ const transferAndUpsert = async (
 ): Promise<void> => {
   const previousUsernameKey = toUsernameKey(previousUsername);
   const usernameKey = toUsernameKey(username);
+
+  if (previousUsernameKey === usernameKey) {
+    return;
+  }
+
   const previousRow = await scores.findOne(
     { usernameKey: previousUsernameKey },
     { projection: { _id: 0, highScore: 1 }, session },
   );
   const nextRow = await scores.findOne({ usernameKey }, { projection: { _id: 0, highScore: 1 }, session });
-  const mergedScore = Math.max(score, previousRow?.highScore ?? 0, nextRow?.highScore ?? 0);
+
+  if (nextRow) {
+    throwUsernameTaken();
+  }
+
+  const mergedScore = Math.max(score, previousRow?.highScore ?? 0);
 
   if (previousRow) {
     await scores.deleteOne({ usernameKey: previousUsernameKey }, { session });
   }
 
   await conditionalUpsert(scores, username, mergedScore, session);
+};
+
+const claimWithoutTransaction = async (
+  scores: Collection<ScoreDocument>,
+  username: string,
+  score: number,
+  previousUsername?: string,
+): Promise<void> => {
+  const normalizedPrevious = previousUsername?.trim();
+  const usernameKey = toUsernameKey(username);
+
+  if (!normalizedPrevious) {
+    const existing = await scores.findOne(
+      { usernameKey },
+      { projection: { _id: 0, usernameKey: 1 } },
+    );
+
+    if (existing) {
+      throwUsernameTaken();
+    }
+
+    await conditionalUpsert(scores, username, score);
+    return;
+  }
+
+  if (toUsernameKey(normalizedPrevious) === usernameKey) {
+    return;
+  }
+
+  await transferAndUpsert(scores, username, score, normalizedPrevious);
 };
 
 let hasTransactionSupport: boolean | undefined;
@@ -210,6 +268,37 @@ export const transferAndUpsertHighScore = (
 
       hasTransactionSupport = false;
       await transferAndUpsert(scores, username, score, normalizedPrevious);
+    } finally {
+      await session.endSession();
+    }
+  })();
+};
+
+export const claimUsername = (username: string, score: number, previousUsername?: string): Promise<void> => {
+  return (async () => {
+    const normalizedPrevious = previousUsername?.trim();
+    const scores = await getScoresCollection();
+
+    if (hasTransactionSupport === false) {
+      await claimWithoutTransaction(scores, username, score, normalizedPrevious);
+      return;
+    }
+
+    const client = await clientPromise;
+    const session = client.startSession();
+
+    try {
+      await session.withTransaction(async () => {
+        await claimWithoutTransaction(scores, username, score, normalizedPrevious);
+      });
+      hasTransactionSupport = true;
+    } catch (error) {
+      if (!isUnsupportedTransactionError(error)) {
+        throw error;
+      }
+
+      hasTransactionSupport = false;
+      await claimWithoutTransaction(scores, username, score, normalizedPrevious);
     } finally {
       await session.endSession();
     }

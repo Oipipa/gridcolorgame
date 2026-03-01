@@ -69,7 +69,6 @@ const isLeaderboardPayload = (value: unknown): value is { leaderboard: Leaderboa
 interface PersistScoreOptions {
   refreshLeaderboard?: boolean;
   preferBeacon?: boolean;
-  previousUsername?: string;
 }
 
 export default function HomePage() {
@@ -210,11 +209,9 @@ export default function HomePage() {
     async (playerName: string, score: number, options?: PersistScoreOptions) => {
       const shouldRefreshLeaderboard = options?.refreshLeaderboard ?? false;
       const shouldPreferBeacon = options?.preferBeacon ?? false;
-      const previousUsername = options?.previousUsername;
       const payload = JSON.stringify({
         username: playerName,
         score,
-        previousUsername: previousUsername && previousUsername.length > 0 ? previousUsername : undefined,
       });
 
       try {
@@ -244,6 +241,40 @@ export default function HomePage() {
       }
     },
     [loadTopScorers],
+  );
+
+  const claimUsername = useCallback(
+    async (nextUsername: string, previousUsername?: string) => {
+      const response = await fetch("/api/scores", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          username: nextUsername,
+          score: levelRef.current,
+          previousUsername: previousUsername && previousUsername.length > 0 ? previousUsername : undefined,
+          claimOnly: true,
+        }),
+      });
+
+      if (response.ok) {
+        return;
+      }
+
+      const payload: unknown = await response.json().catch(() => null);
+      const code =
+        payload && typeof payload === "object" && "code" in payload && typeof payload.code === "string"
+          ? payload.code
+          : "";
+
+      if (response.status === 409 && code === "USERNAME_TAKEN") {
+        throw new Error("USERNAME_TAKEN");
+      }
+
+      throw new Error("USERNAME_CLAIM_FAILED");
+    },
+    [],
   );
 
   const clearFeedback = useCallback(() => {
@@ -575,7 +606,7 @@ export default function HomePage() {
   }, [applyRound, clearFeedback]);
 
   const handleUsernameSubmit = useCallback(
-    (event: FormEvent<HTMLFormElement>) => {
+    async (event: FormEvent<HTMLFormElement>) => {
       event.preventDefault();
 
       const normalized = sanitizeUsername(usernameInput);
@@ -589,6 +620,30 @@ export default function HomePage() {
 
       const previousUsername = usernameRef.current;
 
+      if (previousUsername && previousUsername.toLowerCase() === normalized.toLowerCase()) {
+        setUsernameError("");
+        setIsUsernamePromptOpen(false);
+
+        if (isTimerPausedByUsernamePromptRef.current && statusRef.current === "playing") {
+          timerDeadlineRef.current = Date.now() + timeRemainingRef.current * 1000;
+          isTimerPausedByUsernamePromptRef.current = false;
+        }
+
+        return;
+      }
+
+      try {
+        await claimUsername(normalized, previousUsername || undefined);
+      } catch (error) {
+        if (error instanceof Error && error.message === "USERNAME_TAKEN") {
+          setUsernameError("Username already taken. Pick a different one.");
+          return;
+        }
+
+        setUsernameError("Unable to save username right now. Please try again.");
+        return;
+      }
+
       setUsername(normalized);
       usernameRef.current = normalized;
       setUsernameInput(normalized);
@@ -596,20 +651,14 @@ export default function HomePage() {
       setIsUsernamePromptOpen(false);
       setIsUsernameResolved(true);
       window.localStorage.setItem(USERNAME_STORAGE_KEY, normalized);
-
-      if (previousUsername && previousUsername.toLowerCase() !== normalized.toLowerCase()) {
-        void persistScore(normalized, levelRef.current, {
-          previousUsername,
-          refreshLeaderboard: true,
-        });
-      }
+      void loadTopScorers();
 
       if (isTimerPausedByUsernamePromptRef.current && statusRef.current === "playing") {
         timerDeadlineRef.current = Date.now() + timeRemainingRef.current * 1000;
         isTimerPausedByUsernamePromptRef.current = false;
       }
     },
-    [persistScore, usernameInput],
+    [claimUsername, loadTopScorers, usernameInput],
   );
 
   const handleUsernameChange = useCallback((nextValue: string) => {

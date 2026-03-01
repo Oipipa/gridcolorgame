@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getLeaderboard, transferAndUpsertHighScore } from "@/lib/db";
+import {
+  claimUsername,
+  getLeaderboard,
+  transferAndUpsertHighScore,
+  USERNAME_TAKEN_ERROR_CODE,
+  upsertHighScore,
+} from "@/lib/db";
 import { isValidUsername, normalizeScore, sanitizeUsername } from "@/lib/scores";
 
 export const runtime = "nodejs";
@@ -30,7 +36,8 @@ export async function POST(request: NextRequest) {
     !payload ||
     typeof payload.username !== "string" ||
     typeof payload.score !== "number" ||
-    (payload.previousUsername !== undefined && typeof payload.previousUsername !== "string")
+    (payload.previousUsername !== undefined && typeof payload.previousUsername !== "string") ||
+    (payload.claimOnly !== undefined && typeof payload.claimOnly !== "boolean")
   ) {
     return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
   }
@@ -43,13 +50,40 @@ export async function POST(request: NextRequest) {
 
   const previousUsername =
     payload.previousUsername !== undefined ? sanitizeUsername(payload.previousUsername) : undefined;
+  const claimOnly = payload.claimOnly === true;
 
-  if (previousUsername !== undefined && previousUsername.length > 0 && !isValidUsername(previousUsername)) {
+  if (
+    claimOnly &&
+    previousUsername !== undefined &&
+    previousUsername.length > 0 &&
+    !isValidUsername(previousUsername)
+  ) {
     return NextResponse.json({ error: "Invalid previous username" }, { status: 400 });
   }
 
   const score = normalizeScore(payload.score);
-  await transferAndUpsertHighScore(username, score, previousUsername);
+
+  try {
+    if (claimOnly) {
+      await claimUsername(username, score, previousUsername);
+    } else if (previousUsername && previousUsername.length > 0) {
+      await transferAndUpsertHighScore(username, score, previousUsername);
+    } else {
+      await upsertHighScore(username, score);
+    }
+  } catch (error) {
+    if (error instanceof Error && error.message === USERNAME_TAKEN_ERROR_CODE) {
+      return NextResponse.json(
+        {
+          error: "Username is already taken. Pick a different username.",
+          code: USERNAME_TAKEN_ERROR_CODE,
+        },
+        { status: 409 },
+      );
+    }
+
+    throw error;
+  }
 
   return NextResponse.json({ ok: true });
 }
