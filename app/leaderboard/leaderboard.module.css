@@ -1,0 +1,60 @@
+.page {
+  min-height: 100dvh;
+  width: 100%;
+  padding: clamp(0.6rem, 2.5vw, 1.2rem);
+  display: grid;
+  grid-template-rows: auto 1fr;
+  justify-items: center;
+  gap: 1rem;
+}
+
+.header {
+  width: 100%;
+  display: block;
+}
+
+.panel {
+  width: min(96vw, 34rem);
+  background: #0f151a;
+  border: 1px solid #1f2c34;
+  border-radius: 1rem;
+  padding: 0.8rem;
+}
+
+.title {
+  margin: 0;
+  font-size: 1.1rem;
+  color: #ecf5fa;
+}
+
+.empty {
+  margin: 0.7rem 0 0;
+  color: #a7bcc8;
+  font-size: 0.9rem;
+}
+
+.tableWrap {
+  margin-top: 0.7rem;
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table th,
+.table td {
+  text-align: left;
+  padding: 0.56rem 0.45rem;
+  border-bottom: 1px solid #1e2a32;
+  font-size: 0.86rem;
+  color: #dbe8ef;
+}
+
+.table th {
+  color: #a8bcc8;
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}

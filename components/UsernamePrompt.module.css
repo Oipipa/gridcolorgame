@@ -1,0 +1,62 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.82);
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  z-index: 30;
+}
+
+.form {
+  width: min(92vw, 22rem);
+  background: #0f1519;
+  border: 1px solid #222f39;
+  border-radius: 1rem;
+  padding: 1rem;
+  display: grid;
+  gap: 0.65rem;
+}
+
+.title {
+  margin: 0;
+  font-size: 1.05rem;
+  color: #eff7fb;
+}
+
+.helper {
+  margin: 0;
+  font-size: 0.83rem;
+  color: #a8bcc7;
+}
+
+.input {
+  width: 100%;
+  border-radius: 0.7rem;
+  border: 1px solid #2a3944;
+  background: #0a0f13;
+  color: #eef7fb;
+  padding: 0.6rem 0.72rem;
+}
+
+.input:focus-visible {
+  outline: 2px solid #86a4b6;
+  outline-offset: 1px;
+}
+
+.error {
+  margin: 0;
+  font-size: 0.78rem;
+  color: #ff7c8d;
+}
+
+.button {
+  border: 0;
+  border-radius: 999px;
+  padding: 0.58rem 0.92rem;
+  background: #42d48a;
+  color: #052a1a;
+  font-weight: 700;
+  cursor: pointer;
+  justify-self: start;
+}

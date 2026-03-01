@@ -1,0 +1,29 @@
+.button {
+  border: 0;
+  border-radius: 999px;
+  padding: 0.7rem 1.35rem;
+  font-family: var(--font-space-grotesk), "Trebuchet MS", sans-serif;
+  font-size: 0.96rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: #052a1a;
+  background: #42d48a;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: transform 0.12s ease, filter 0.12s ease;
+}
+
+.button:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.03);
+}
+
+.button:active {
+  transform: translateY(0);
+  filter: brightness(0.98);
+}
+
+.button:focus-visible {
+  outline: 2px solid rgba(210, 252, 227, 0.92);
+  outline-offset: 2px;
+}

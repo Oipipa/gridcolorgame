@@ -1,0 +1,71 @@
+.square {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  border-radius: clamp(0.7rem, 1.8vw, 1rem);
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    transform 0.12s ease,
+    border-radius 0.42s cubic-bezier(0.22, 0.8, 0.2, 1);
+}
+
+.square:hover:not(:disabled) {
+  transform: scale(1.02);
+}
+
+.square:focus-visible {
+  outline: 2px solid rgba(236, 252, 255, 0.9);
+  outline-offset: 2px;
+}
+
+.disabled {
+  cursor: default;
+}
+
+.correct {
+  animation: correct-pop 140ms ease-out;
+}
+
+.wrong {
+  animation: wrong-bump 180ms ease-out;
+}
+
+.oddOnGameOver {
+  border-radius: 999px;
+  transform: scale(1.03);
+  outline: 2px solid rgba(252, 252, 252, 0.5);
+  outline-offset: -2px;
+}
+
+@keyframes correct-pop {
+  0% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(0.92);
+  }
+
+  100% {
+    transform: scale(1.04);
+  }
+}
+
+@keyframes wrong-bump {
+  0% {
+    transform: scale(1);
+    filter: saturate(1);
+  }
+
+  45% {
+    transform: scale(0.9);
+    filter: saturate(0.85);
+  }
+
+  100% {
+    transform: scale(1.01);
+    filter: saturate(1);
+  }
+}
